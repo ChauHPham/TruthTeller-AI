@@ -11,6 +11,7 @@ const HalluciQuiz = () => {
   const [timeLeft, setTimeLeft] = useState(30);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState('medium');
+  const [selectedQuestionCount, setSelectedQuestionCount] = useState(10);
   const [showSettings, setShowSettings] = useState(false);
 
   // Quiz categories and their icons
@@ -27,6 +28,9 @@ const HalluciQuiz = () => {
     medium: { timeLimit: 30, points: 20, label: "Medium" },
     hard: { timeLimit: 15, points: 30, label: "Hard" }
   };
+
+  // Question count options
+  const questionCountOptions = [5, 10, 20];
 
   // Comprehensive quiz questions with categories, difficulty, and types
   const allQuestions = [
@@ -69,6 +73,63 @@ const HalluciQuiz = () => {
       correct: true,
       explanation: "Yes, water boils at 100°C (212°F) at standard atmospheric pressure (sea level)."
     },
+    {
+      id: 14,
+      category: "science",
+      difficulty: "easy",
+      type: "multiple-choice",
+      question: "What gas do plants absorb from the atmosphere?",
+      options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"],
+      correct: 1,
+      explanation: "Plants absorb carbon dioxide from the atmosphere during photosynthesis."
+    },
+    {
+      id: 15,
+      category: "science",
+      difficulty: "medium",
+      type: "true-false",
+      question: "Light travels faster than sound.",
+      correct: true,
+      explanation: "Yes, light travels at approximately 300,000 km/s while sound travels at about 343 m/s in air."
+    },
+    {
+      id: 16,
+      category: "science",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "What is the smallest unit of matter?",
+      options: ["Molecule", "Atom", "Electron", "Proton"],
+      correct: 1,
+      explanation: "An atom is the smallest unit of matter that retains the properties of an element."
+    },
+    {
+      id: 17,
+      category: "science",
+      difficulty: "easy",
+      type: "true-false",
+      question: "The Sun is a star.",
+      correct: true,
+      explanation: "Yes, the Sun is a G-type main-sequence star at the center of our solar system."
+    },
+    {
+      id: 18,
+      category: "science",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "Which blood type is known as the universal donor?",
+      options: ["A", "B", "AB", "O"],
+      correct: 3,
+      explanation: "Type O negative blood is considered the universal donor because it can be given to people of any blood type."
+    },
+    {
+      id: 19,
+      category: "science",
+      difficulty: "hard",
+      type: "true-false",
+      question: "DNA stands for Deoxyribonucleic Acid.",
+      correct: true,
+      explanation: "Yes, DNA stands for Deoxyribonucleic Acid, the molecule that carries genetic information."
+    },
 
     // History Questions
     {
@@ -99,6 +160,63 @@ const HalluciQuiz = () => {
       options: ["Robert Falcon Scott", "Roald Amundsen", "Ernest Shackleton", "Edmund Hillary"],
       correct: 1,
       explanation: "Roald Amundsen was the first person to reach the South Pole on December 14, 1911."
+    },
+    {
+      id: 20,
+      category: "history",
+      difficulty: "easy",
+      type: "true-false",
+      question: "The Roman Empire fell in 476 AD.",
+      correct: true,
+      explanation: "Yes, the Western Roman Empire officially fell in 476 AD when Germanic chieftain Odoacer deposed the last Roman emperor."
+    },
+    {
+      id: 21,
+      category: "history",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "Who painted the Mona Lisa?",
+      options: ["Michelangelo", "Leonardo da Vinci", "Raphael", "Donatello"],
+      correct: 1,
+      explanation: "Leonardo da Vinci painted the Mona Lisa between 1503 and 1519."
+    },
+    {
+      id: 22,
+      category: "history",
+      difficulty: "hard",
+      type: "true-false",
+      question: "The printing press was invented by Johannes Gutenberg.",
+      correct: true,
+      explanation: "Yes, Johannes Gutenberg invented the movable-type printing press around 1440."
+    },
+    {
+      id: 23,
+      category: "history",
+      difficulty: "easy",
+      type: "multiple-choice",
+      question: "Which war was fought between 1914 and 1918?",
+      options: ["World War I", "World War II", "Korean War", "Vietnam War"],
+      correct: 0,
+      explanation: "World War I was fought from 1914 to 1918."
+    },
+    {
+      id: 24,
+      category: "history",
+      difficulty: "medium",
+      type: "true-false",
+      question: "Napoleon Bonaparte was French.",
+      correct: true,
+      explanation: "Yes, Napoleon Bonaparte was French, born in Corsica in 1769."
+    },
+    {
+      id: 25,
+      category: "history",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "Which ancient wonder was located in Alexandria?",
+      options: ["Hanging Gardens", "Colossus of Rhodes", "Lighthouse of Alexandria", "Temple of Artemis"],
+      correct: 2,
+      explanation: "The Lighthouse of Alexandria was one of the Seven Wonders of the Ancient World."
     },
 
     // Geography Questions
@@ -131,6 +249,63 @@ const HalluciQuiz = () => {
       correct: 0,
       explanation: "Russia spans 11 time zones, making it the country with the most time zones."
     },
+    {
+      id: 26,
+      category: "geography",
+      difficulty: "easy",
+      type: "true-false",
+      question: "Mount Everest is the tallest mountain in the world.",
+      correct: true,
+      explanation: "Yes, Mount Everest is the highest peak above sea level at 8,848 meters."
+    },
+    {
+      id: 27,
+      category: "geography",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "Which ocean is the largest?",
+      options: ["Atlantic", "Pacific", "Indian", "Arctic"],
+      correct: 1,
+      explanation: "The Pacific Ocean is the largest ocean, covering about 46% of Earth's water surface."
+    },
+    {
+      id: 28,
+      category: "geography",
+      difficulty: "hard",
+      type: "true-false",
+      question: "The Sahara Desert is the largest hot desert in the world.",
+      correct: true,
+      explanation: "Yes, the Sahara Desert is the largest hot desert, covering about 9.2 million square kilometers."
+    },
+    {
+      id: 29,
+      category: "geography",
+      difficulty: "easy",
+      type: "multiple-choice",
+      question: "What is the capital of Japan?",
+      options: ["Osaka", "Kyoto", "Tokyo", "Hiroshima"],
+      correct: 2,
+      explanation: "Tokyo is the capital and largest city of Japan."
+    },
+    {
+      id: 30,
+      category: "geography",
+      difficulty: "medium",
+      type: "true-false",
+      question: "Australia is both a country and a continent.",
+      correct: true,
+      explanation: "Yes, Australia is both a sovereign country and the smallest continent."
+    },
+    {
+      id: 31,
+      category: "geography",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "Which country has the most natural lakes?",
+      options: ["Canada", "Russia", "United States", "Finland"],
+      correct: 0,
+      explanation: "Canada has the most natural lakes in the world, with over 2 million lakes."
+    },
 
     // Technology Questions
     {
@@ -160,10 +335,67 @@ const HalluciQuiz = () => {
       question: "JavaScript and Java are the same programming language.",
       correct: false,
       explanation: "No, JavaScript and Java are completely different programming languages with different syntax and purposes."
+    },
+    {
+      id: 32,
+      category: "technology",
+      difficulty: "easy",
+      type: "multiple-choice",
+      question: "What does 'www' stand for in website addresses?",
+      options: ["World Wide Web", "World Web Wide", "Wide World Web", "Web World Wide"],
+      correct: 0,
+      explanation: "WWW stands for World Wide Web, the system of interlinked hypertext documents."
+    },
+    {
+      id: 33,
+      category: "technology",
+      difficulty: "medium",
+      type: "true-false",
+      question: "RAM stands for Random Access Memory.",
+      correct: true,
+      explanation: "Yes, RAM stands for Random Access Memory, a type of computer memory."
+    },
+    {
+      id: 34,
+      category: "technology",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "Which company developed the iPhone?",
+      options: ["Samsung", "Google", "Apple", "Microsoft"],
+      correct: 2,
+      explanation: "Apple Inc. developed and released the first iPhone in 2007."
+    },
+    {
+      id: 35,
+      category: "technology",
+      difficulty: "easy",
+      type: "true-false",
+      question: "WiFi stands for Wireless Fidelity.",
+      correct: true,
+      explanation: "Yes, WiFi is a trademarked term that stands for Wireless Fidelity."
+    },
+    {
+      id: 36,
+      category: "technology",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "What does 'AI' stand for?",
+      options: ["Automated Intelligence", "Artificial Intelligence", "Advanced Intelligence", "Automated Information"],
+      correct: 1,
+      explanation: "AI stands for Artificial Intelligence, the simulation of human intelligence in machines."
+    },
+    {
+      id: 37,
+      category: "technology",
+      difficulty: "hard",
+      type: "true-false",
+      question: "The first computer bug was an actual insect.",
+      correct: true,
+      explanation: "Yes, the first computer bug was a moth found trapped in a Harvard Mark II computer in 1947."
     }
   ];
 
-  // Filter questions based on selected category and difficulty
+  // Filter questions based on selected category, difficulty, and count
   const getFilteredQuestions = () => {
     let filtered = allQuestions;
     
@@ -175,7 +407,8 @@ const HalluciQuiz = () => {
       filtered = filtered.filter(q => q.difficulty === selectedDifficulty);
     }
     
-    return filtered;
+    // Return the first N questions in consistent order (no randomization)
+    return filtered.slice(0, selectedQuestionCount);
   };
 
   const questions = getFilteredQuestions();
@@ -196,6 +429,11 @@ const HalluciQuiz = () => {
   }, [selectedDifficulty]);
 
   const handleAnswerSelect = (answerIndex) => {
+    if (!questions[currentQuestion]) {
+      console.error('No question found at index:', currentQuestion);
+      return;
+    }
+    
     setSelectedAnswer(answerIndex);
     const currentQ = questions[currentQuestion];
     let isCorrect = false;
@@ -213,6 +451,11 @@ const HalluciQuiz = () => {
   };
 
   const nextQuestion = () => {
+    if (questions.length === 0) {
+      console.error('No questions available');
+      return;
+    }
+    
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(null);
@@ -231,9 +474,14 @@ const HalluciQuiz = () => {
     setSelectedAnswer(null);
     setQuizStarted(false);
     setTimeLeft(difficultySettings[selectedDifficulty].timeLimit);
+    // Note: We don't reset question count, category, or difficulty to preserve user preferences
   };
 
   const startQuiz = () => {
+    if (questions.length === 0) {
+      console.error('Cannot start quiz: No questions available');
+      return;
+    }
     setQuizStarted(true);
     setTimeLeft(difficultySettings[selectedDifficulty].timeLimit);
   };
@@ -342,11 +590,37 @@ const HalluciQuiz = () => {
                   </div>
                 </div>
 
+                {/* Question Count Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-3">Number of Questions</label>
+                  <div className="flex gap-3">
+                    {questionCountOptions.map((count) => (
+                      <motion.button
+                        key={count}
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setSelectedQuestionCount(count)}
+                        className={`px-6 py-3 rounded-lg font-medium transition-all ${
+                          selectedQuestionCount === count
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                        }`}
+                      >
+                        {count} Questions
+                      </motion.button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Quiz Info */}
                 <div className="text-sm text-gray-600">
+                  <p>Questions in quiz: {selectedQuestionCount}</p>
                   <p>Available questions: {questions.length}</p>
                   <p>Time per question: {difficultySettings[selectedDifficulty].timeLimit} seconds</p>
                   <p>Points per correct answer: {difficultySettings[selectedDifficulty].points}</p>
+                  <p className="text-purple-600 font-medium mt-2">
+                    Questions are presented in a consistent order.
+                  </p>
                 </div>
               </motion.div>
             )}
@@ -367,7 +641,7 @@ const HalluciQuiz = () => {
                   </h2>
                   <p className="text-gray-600">
                     {questions.length > 0 
-                      ? `You'll have ${difficultySettings[selectedDifficulty].timeLimit} seconds per question. Good luck!`
+                      ? `You'll answer ${selectedQuestionCount} questions with ${difficultySettings[selectedDifficulty].timeLimit} seconds each. Good luck!`
                       : 'Please select a category and difficulty to start the quiz.'
                     }
                   </p>
@@ -414,11 +688,13 @@ const HalluciQuiz = () => {
                 </div>
 
                 {/* Question Type Badge */}
-                <div className="text-center mb-4">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                    {questions[currentQuestion].type === 'true-false' ? 'True/False' : 'Multiple Choice'}
-                  </span>
-                </div>
+                {questions[currentQuestion] && (
+                  <div className="text-center mb-4">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {questions[currentQuestion].type === 'true-false' ? 'True/False' : 'Multiple Choice'}
+                    </span>
+                  </div>
+                )}
 
                 {/* Timer */}
                 <div className="text-center mb-6">
@@ -435,12 +711,14 @@ const HalluciQuiz = () => {
                 </div>
 
                 {/* Question */}
-                <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">
-                  {questions[currentQuestion].question}
-                </h2>
+                {questions[currentQuestion] && (
+                  <h2 className="text-xl font-semibold text-gray-800 mb-6 text-center">
+                    {questions[currentQuestion].question}
+                  </h2>
+                )}
 
                 {/* Options - Multiple Choice */}
-                {questions[currentQuestion].type === 'multiple-choice' && (
+                {questions[currentQuestion] && questions[currentQuestion].type === 'multiple-choice' && (
                   <div className="space-y-3 mb-6">
                     {questions[currentQuestion].options.map((option, index) => (
                       <motion.button
@@ -474,7 +752,7 @@ const HalluciQuiz = () => {
                 )}
 
                 {/* Options - True/False */}
-                {questions[currentQuestion].type === 'true-false' && (
+                {questions[currentQuestion] && questions[currentQuestion].type === 'true-false' && (
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     {[true, false].map((value, index) => (
                       <motion.button
@@ -513,7 +791,7 @@ const HalluciQuiz = () => {
                 )}
 
                 {/* Explanation */}
-                {showResult && (
+                {showResult && questions[currentQuestion] && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
