@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Brain, Trophy, RotateCcw, CheckCircle, XCircle, Settings, BookOpen, Globe, Cpu, FlaskConical } from 'lucide-react';
+import { Brain, Trophy, RotateCcw, CheckCircle, XCircle, Settings, BookOpen, Globe, Cpu, FlaskConical, Loader2 } from 'lucide-react';
+import { generateQuestionsWithAI } from '../services/aiQuestionService';
 
 const HalluciQuiz = () => {
   const [currentQuestion, setCurrentQuestion] = useState(0);
@@ -13,6 +14,9 @@ const HalluciQuiz = () => {
   const [selectedDifficulty, setSelectedDifficulty] = useState('medium');
   const [selectedQuestionCount, setSelectedQuestionCount] = useState(10);
   const [showSettings, setShowSettings] = useState(false);
+  const [questions, setQuestions] = useState([]);
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
+  const [questionError, setQuestionError] = useState(null);
 
   // Quiz categories and their icons
   const categories = {
@@ -32,386 +36,26 @@ const HalluciQuiz = () => {
   // Question count options
   const questionCountOptions = [5, 10, 20];
 
-  // Comprehensive quiz questions with categories, difficulty, and types
-  const allQuestions = [
-    // Science Questions
-    {
-      id: 1,
-      category: "science",
-      difficulty: "easy",
-      type: "multiple-choice",
-      question: "Which planet is known as the Red Planet?",
-      options: ["Venus", "Mars", "Jupiter", "Saturn"],
-      correct: 1,
-      explanation: "Mars is called the Red Planet due to iron oxide on its surface."
-    },
-    {
-      id: 2,
-      category: "science",
-      difficulty: "medium",
-      type: "true-false",
-      question: "The human body has 206 bones.",
-      correct: true,
-      explanation: "Yes, the adult human body has 206 bones, while babies are born with about 270 bones."
-    },
-    {
-      id: 3,
-      category: "science",
-      difficulty: "hard",
-      type: "multiple-choice",
-      question: "What is the chemical symbol for gold?",
-      options: ["Go", "Gd", "Au", "Ag"],
-      correct: 2,
-      explanation: "Au is the chemical symbol for gold, derived from the Latin word 'aurum'."
-    },
-    {
-      id: 4,
-      category: "science",
-      difficulty: "easy",
-      type: "true-false",
-      question: "Water boils at 100°C at sea level.",
-      correct: true,
-      explanation: "Yes, water boils at 100°C (212°F) at standard atmospheric pressure (sea level)."
-    },
-    {
-      id: 14,
-      category: "science",
-      difficulty: "easy",
-      type: "multiple-choice",
-      question: "What gas do plants absorb from the atmosphere?",
-      options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"],
-      correct: 1,
-      explanation: "Plants absorb carbon dioxide from the atmosphere during photosynthesis."
-    },
-    {
-      id: 15,
-      category: "science",
-      difficulty: "medium",
-      type: "true-false",
-      question: "Light travels faster than sound.",
-      correct: true,
-      explanation: "Yes, light travels at approximately 300,000 km/s while sound travels at about 343 m/s in air."
-    },
-    {
-      id: 16,
-      category: "science",
-      difficulty: "hard",
-      type: "multiple-choice",
-      question: "What is the smallest unit of matter?",
-      options: ["Molecule", "Atom", "Electron", "Proton"],
-      correct: 1,
-      explanation: "An atom is the smallest unit of matter that retains the properties of an element."
-    },
-    {
-      id: 17,
-      category: "science",
-      difficulty: "easy",
-      type: "true-false",
-      question: "The Sun is a star.",
-      correct: true,
-      explanation: "Yes, the Sun is a G-type main-sequence star at the center of our solar system."
-    },
-    {
-      id: 18,
-      category: "science",
-      difficulty: "medium",
-      type: "multiple-choice",
-      question: "Which blood type is known as the universal donor?",
-      options: ["A", "B", "AB", "O"],
-      correct: 3,
-      explanation: "Type O negative blood is considered the universal donor because it can be given to people of any blood type."
-    },
-    {
-      id: 19,
-      category: "science",
-      difficulty: "hard",
-      type: "true-false",
-      question: "DNA stands for Deoxyribonucleic Acid.",
-      correct: true,
-      explanation: "Yes, DNA stands for Deoxyribonucleic Acid, the molecule that carries genetic information."
-    },
+  // Questions are now generated dynamically using AI - no static questions
 
-    // History Questions
-    {
-      id: 5,
-      category: "history",
-      difficulty: "easy",
-      type: "multiple-choice",
-      question: "In which year did World War II end?",
-      options: ["1944", "1945", "1946", "1947"],
-      correct: 1,
-      explanation: "World War II ended in 1945 with the surrender of Japan on September 2, 1945."
-    },
-    {
-      id: 6,
-      category: "history",
-      difficulty: "medium",
-      type: "true-false",
-      question: "The Great Wall of China is visible from space with the naked eye.",
-      correct: false,
-      explanation: "This is a common myth. The Great Wall is not visible from space with the naked eye."
-    },
-    {
-      id: 7,
-      category: "history",
-      difficulty: "hard",
-      type: "multiple-choice",
-      question: "Who was the first person to reach the South Pole?",
-      options: ["Robert Falcon Scott", "Roald Amundsen", "Ernest Shackleton", "Edmund Hillary"],
-      correct: 1,
-      explanation: "Roald Amundsen was the first person to reach the South Pole on December 14, 1911."
-    },
-    {
-      id: 20,
-      category: "history",
-      difficulty: "easy",
-      type: "true-false",
-      question: "The Roman Empire fell in 476 AD.",
-      correct: true,
-      explanation: "Yes, the Western Roman Empire officially fell in 476 AD when Germanic chieftain Odoacer deposed the last Roman emperor."
-    },
-    {
-      id: 21,
-      category: "history",
-      difficulty: "medium",
-      type: "multiple-choice",
-      question: "Who painted the Mona Lisa?",
-      options: ["Michelangelo", "Leonardo da Vinci", "Raphael", "Donatello"],
-      correct: 1,
-      explanation: "Leonardo da Vinci painted the Mona Lisa between 1503 and 1519."
-    },
-    {
-      id: 22,
-      category: "history",
-      difficulty: "hard",
-      type: "true-false",
-      question: "The printing press was invented by Johannes Gutenberg.",
-      correct: true,
-      explanation: "Yes, Johannes Gutenberg invented the movable-type printing press around 1440."
-    },
-    {
-      id: 23,
-      category: "history",
-      difficulty: "easy",
-      type: "multiple-choice",
-      question: "Which war was fought between 1914 and 1918?",
-      options: ["World War I", "World War II", "Korean War", "Vietnam War"],
-      correct: 0,
-      explanation: "World War I was fought from 1914 to 1918."
-    },
-    {
-      id: 24,
-      category: "history",
-      difficulty: "medium",
-      type: "true-false",
-      question: "Napoleon Bonaparte was French.",
-      correct: true,
-      explanation: "Yes, Napoleon Bonaparte was French, born in Corsica in 1769."
-    },
-    {
-      id: 25,
-      category: "history",
-      difficulty: "hard",
-      type: "multiple-choice",
-      question: "Which ancient wonder was located in Alexandria?",
-      options: ["Hanging Gardens", "Colossus of Rhodes", "Lighthouse of Alexandria", "Temple of Artemis"],
-      correct: 2,
-      explanation: "The Lighthouse of Alexandria was one of the Seven Wonders of the Ancient World."
-    },
-
-    // Geography Questions
-    {
-      id: 8,
-      category: "geography",
-      difficulty: "easy",
-      type: "multiple-choice",
-      question: "What is the capital of France?",
-      options: ["London", "Berlin", "Paris", "Madrid"],
-      correct: 2,
-      explanation: "Paris is the capital and largest city of France."
-    },
-    {
-      id: 9,
-      category: "geography",
-      difficulty: "medium",
-      type: "true-false",
-      question: "The Amazon River is the longest river in the world.",
-      correct: false,
-      explanation: "The Nile River is the longest river in the world at 6,650 km, while the Amazon is the second longest."
-    },
-    {
-      id: 10,
-      category: "geography",
-      difficulty: "hard",
-      type: "multiple-choice",
-      question: "Which country has the most time zones?",
-      options: ["Russia", "United States", "China", "Brazil"],
-      correct: 0,
-      explanation: "Russia spans 11 time zones, making it the country with the most time zones."
-    },
-    {
-      id: 26,
-      category: "geography",
-      difficulty: "easy",
-      type: "true-false",
-      question: "Mount Everest is the tallest mountain in the world.",
-      correct: true,
-      explanation: "Yes, Mount Everest is the highest peak above sea level at 8,848 meters."
-    },
-    {
-      id: 27,
-      category: "geography",
-      difficulty: "medium",
-      type: "multiple-choice",
-      question: "Which ocean is the largest?",
-      options: ["Atlantic", "Pacific", "Indian", "Arctic"],
-      correct: 1,
-      explanation: "The Pacific Ocean is the largest ocean, covering about 46% of Earth's water surface."
-    },
-    {
-      id: 28,
-      category: "geography",
-      difficulty: "hard",
-      type: "true-false",
-      question: "The Sahara Desert is the largest hot desert in the world.",
-      correct: true,
-      explanation: "Yes, the Sahara Desert is the largest hot desert, covering about 9.2 million square kilometers."
-    },
-    {
-      id: 29,
-      category: "geography",
-      difficulty: "easy",
-      type: "multiple-choice",
-      question: "What is the capital of Japan?",
-      options: ["Osaka", "Kyoto", "Tokyo", "Hiroshima"],
-      correct: 2,
-      explanation: "Tokyo is the capital and largest city of Japan."
-    },
-    {
-      id: 30,
-      category: "geography",
-      difficulty: "medium",
-      type: "true-false",
-      question: "Australia is both a country and a continent.",
-      correct: true,
-      explanation: "Yes, Australia is both a sovereign country and the smallest continent."
-    },
-    {
-      id: 31,
-      category: "geography",
-      difficulty: "hard",
-      type: "multiple-choice",
-      question: "Which country has the most natural lakes?",
-      options: ["Canada", "Russia", "United States", "Finland"],
-      correct: 0,
-      explanation: "Canada has the most natural lakes in the world, with over 2 million lakes."
-    },
-
-    // Technology Questions
-    {
-      id: 11,
-      category: "technology",
-      difficulty: "easy",
-      type: "true-false",
-      question: "HTML stands for HyperText Markup Language.",
-      correct: true,
-      explanation: "Yes, HTML stands for HyperText Markup Language, the standard markup language for web pages."
-    },
-    {
-      id: 12,
-      category: "technology",
-      difficulty: "medium",
-      type: "multiple-choice",
-      question: "What does CPU stand for?",
-      options: ["Central Processing Unit", "Computer Processing Unit", "Central Program Unit", "Computer Program Unit"],
-      correct: 0,
-      explanation: "CPU stands for Central Processing Unit, the main processor of a computer."
-    },
-    {
-      id: 13,
-      category: "technology",
-      difficulty: "hard",
-      type: "true-false",
-      question: "JavaScript and Java are the same programming language.",
-      correct: false,
-      explanation: "No, JavaScript and Java are completely different programming languages with different syntax and purposes."
-    },
-    {
-      id: 32,
-      category: "technology",
-      difficulty: "easy",
-      type: "multiple-choice",
-      question: "What does 'www' stand for in website addresses?",
-      options: ["World Wide Web", "World Web Wide", "Wide World Web", "Web World Wide"],
-      correct: 0,
-      explanation: "WWW stands for World Wide Web, the system of interlinked hypertext documents."
-    },
-    {
-      id: 33,
-      category: "technology",
-      difficulty: "medium",
-      type: "true-false",
-      question: "RAM stands for Random Access Memory.",
-      correct: true,
-      explanation: "Yes, RAM stands for Random Access Memory, a type of computer memory."
-    },
-    {
-      id: 34,
-      category: "technology",
-      difficulty: "hard",
-      type: "multiple-choice",
-      question: "Which company developed the iPhone?",
-      options: ["Samsung", "Google", "Apple", "Microsoft"],
-      correct: 2,
-      explanation: "Apple Inc. developed and released the first iPhone in 2007."
-    },
-    {
-      id: 35,
-      category: "technology",
-      difficulty: "easy",
-      type: "true-false",
-      question: "WiFi stands for Wireless Fidelity.",
-      correct: true,
-      explanation: "Yes, WiFi is a trademarked term that stands for Wireless Fidelity."
-    },
-    {
-      id: 36,
-      category: "technology",
-      difficulty: "medium",
-      type: "multiple-choice",
-      question: "What does 'AI' stand for?",
-      options: ["Automated Intelligence", "Artificial Intelligence", "Advanced Intelligence", "Automated Information"],
-      correct: 1,
-      explanation: "AI stands for Artificial Intelligence, the simulation of human intelligence in machines."
-    },
-    {
-      id: 37,
-      category: "technology",
-      difficulty: "hard",
-      type: "true-false",
-      question: "The first computer bug was an actual insect.",
-      correct: true,
-      explanation: "Yes, the first computer bug was a moth found trapped in a Harvard Mark II computer in 1947."
+  // Function to load AI-generated questions
+  const loadQuestions = async () => {
+    setIsLoadingQuestions(true);
+    setQuestionError(null);
+    try {
+      const generatedQuestions = await generateQuestionsWithAI(
+        selectedCategory,
+        selectedDifficulty,
+        selectedQuestionCount
+      );
+      setQuestions(generatedQuestions);
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      setQuestionError('Failed to generate questions. Please try again.');
+    } finally {
+      setIsLoadingQuestions(false);
     }
-  ];
-
-  // Filter questions based on selected category, difficulty, and count
-  const getFilteredQuestions = () => {
-    let filtered = allQuestions;
-    
-    if (selectedCategory) {
-      filtered = filtered.filter(q => q.category === selectedCategory);
-    }
-    
-    if (selectedDifficulty) {
-      filtered = filtered.filter(q => q.difficulty === selectedDifficulty);
-    }
-    
-    // Return the first N questions in consistent order (no randomization)
-    return filtered.slice(0, selectedQuestionCount);
   };
-
-  const questions = getFilteredQuestions();
 
   // Timer effect
   useEffect(() => {
@@ -477,13 +121,32 @@ const HalluciQuiz = () => {
     // Note: We don't reset question count, category, or difficulty to preserve user preferences
   };
 
-  const startQuiz = () => {
-    if (questions.length === 0) {
-      console.error('Cannot start quiz: No questions available');
-      return;
+  const startQuiz = async () => {
+    // Generate questions when starting quiz
+    setIsLoadingQuestions(true);
+    setQuestionError(null);
+    try {
+      const generatedQuestions = await generateQuestionsWithAI(
+        selectedCategory,
+        selectedDifficulty,
+        selectedQuestionCount
+      );
+      
+      if (generatedQuestions.length === 0) {
+        setQuestionError('No questions could be generated. Please try again.');
+        setIsLoadingQuestions(false);
+        return;
+      }
+      
+      setQuestions(generatedQuestions);
+      setQuizStarted(true);
+      setTimeLeft(difficultySettings[selectedDifficulty].timeLimit);
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      setQuestionError('Failed to generate questions. Please try again.');
+    } finally {
+      setIsLoadingQuestions(false);
     }
-    setQuizStarted(true);
-    setTimeLeft(difficultySettings[selectedDifficulty].timeLimit);
   };
 
   const isQuizComplete = currentQuestion === questions.length - 1 && showResult;
@@ -615,11 +278,10 @@ const HalluciQuiz = () => {
                 {/* Quiz Info */}
                 <div className="text-sm text-gray-600">
                   <p>Questions in quiz: {selectedQuestionCount}</p>
-                  <p>Available questions: {questions.length}</p>
                   <p>Time per question: {difficultySettings[selectedDifficulty].timeLimit} seconds</p>
                   <p>Points per correct answer: {difficultySettings[selectedDifficulty].points}</p>
                   <p className="text-purple-600 font-medium mt-2">
-                    Questions are presented in a consistent order.
+                    ✨ Questions are AI-generated and unique each time!
                   </p>
                 </div>
               </motion.div>
@@ -640,24 +302,36 @@ const HalluciQuiz = () => {
                     Ready to test your knowledge?
                   </h2>
                   <p className="text-gray-600">
-                    {questions.length > 0 
-                      ? `You'll answer ${selectedQuestionCount} questions with ${difficultySettings[selectedDifficulty].timeLimit} seconds each. Good luck!`
-                      : 'Please select a category and difficulty to start the quiz.'
+                    {isLoadingQuestions
+                      ? 'Generating AI questions...'
+                      : `You'll answer ${selectedQuestionCount} AI-generated questions with ${difficultySettings[selectedDifficulty].timeLimit} seconds each. Good luck!`
                     }
                   </p>
                 </div>
+                {questionError && (
+                  <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                    {questionError}
+                  </div>
+                )}
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={startQuiz}
-                  disabled={questions.length === 0}
+                  disabled={isLoadingQuestions}
                   className={`px-8 py-3 rounded-lg font-semibold text-lg shadow-lg transition-all duration-200 ${
-                    questions.length > 0
-                      ? 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-xl'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    isLoadingQuestions
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:shadow-xl'
                   }`}
                 >
-                  {questions.length > 0 ? 'Start Quiz' : 'No Questions Available'}
+                  {isLoadingQuestions ? (
+                    <span className="flex items-center">
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Generating Questions...
+                    </span>
+                  ) : (
+                    'Start Quiz'
+                  )}
                 </motion.button>
               </motion.div>
             ) : !isQuizComplete ? (
