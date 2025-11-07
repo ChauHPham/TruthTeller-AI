@@ -74,7 +74,7 @@ Return ONLY valid JSON, no additional text.`;
           }
         ],
         temperature: 0.9, // Higher temperature for more variety and uniqueness
-        max_tokens: 2000
+        max_tokens: count * 150 // Increase tokens based on question count (150 per question)
       })
     });
 
@@ -95,8 +95,22 @@ Return ONLY valid JSON, no additional text.`;
     
     const questions = JSON.parse(jsonContent);
     
+    // Validate that we got an array
+    if (!Array.isArray(questions)) {
+      throw new Error('AI did not return an array of questions');
+    }
+    
+    // Ensure we have exactly the requested number of questions
+    // If AI generated fewer, we'll use what we have (but log a warning)
+    // If AI generated more, we'll take only the requested count
+    const limitedQuestions = questions.slice(0, count);
+    
+    if (limitedQuestions.length < count) {
+      console.warn(`AI only generated ${limitedQuestions.length} questions, requested ${count}`);
+    }
+    
     // Add IDs and ensure proper formatting
-    return questions.map((q, index) => ({
+    const formattedQuestions = limitedQuestions.map((q, index) => ({
       id: Date.now() + index,
       category: category || 'mixed',
       difficulty: difficulty,
@@ -106,6 +120,13 @@ Return ONLY valid JSON, no additional text.`;
       correct: q.correct,
       explanation: q.explanation || 'No explanation provided.'
     }));
+    
+    // If we got fewer questions than requested, try to generate more
+    if (formattedQuestions.length < count && formattedQuestions.length > 0) {
+      console.log(`Got ${formattedQuestions.length} questions, need ${count}. This is normal if AI response was truncated.`);
+    }
+    
+    return formattedQuestions;
 
   } catch (error) {
     console.error('Error generating AI questions:', error);

@@ -100,13 +100,19 @@ const HalluciQuiz = () => {
       return;
     }
     
+    console.log(`Current question: ${currentQuestion + 1} of ${questions.length}`);
+    
     if (currentQuestion < questions.length - 1) {
-      setCurrentQuestion(currentQuestion + 1);
+      // Move to next question
+      const nextIndex = currentQuestion + 1;
+      console.log(`Moving to question ${nextIndex + 1} of ${questions.length}`);
+      setCurrentQuestion(nextIndex);
       setSelectedAnswer(null);
       setShowResult(false);
       setTimeLeft(difficultySettings[selectedDifficulty].timeLimit);
     } else {
-      // Quiz completed
+      // Quiz completed - we're on the last question
+      console.log(`Quiz complete! Answered all ${questions.length} questions.`);
       setShowResult(true);
     }
   };
@@ -126,11 +132,15 @@ const HalluciQuiz = () => {
     setIsLoadingQuestions(true);
     setQuestionError(null);
     try {
+      console.log(`Generating ${selectedQuestionCount} questions for category: ${selectedCategory || 'all'}, difficulty: ${selectedDifficulty}`);
+      
       const generatedQuestions = await generateQuestionsWithAI(
         selectedCategory,
         selectedDifficulty,
         selectedQuestionCount
       );
+      
+      console.log(`Generated ${generatedQuestions.length} questions (requested: ${selectedQuestionCount})`);
       
       if (generatedQuestions.length === 0) {
         setQuestionError('No questions could be generated. Please try again.');
@@ -138,7 +148,15 @@ const HalluciQuiz = () => {
         return;
       }
       
+      // Ensure we have at least some questions
+      if (generatedQuestions.length < selectedQuestionCount) {
+        console.warn(`Only got ${generatedQuestions.length} questions, but requested ${selectedQuestionCount}`);
+        setQuestionError(`Only ${generatedQuestions.length} questions were generated (requested ${selectedQuestionCount}). You can still proceed.`);
+      }
+      
       setQuestions(generatedQuestions);
+      setCurrentQuestion(0); // Reset to first question
+      setScore(0); // Reset score
       setQuizStarted(true);
       setTimeLeft(difficultySettings[selectedDifficulty].timeLimit);
     } catch (error) {
@@ -149,7 +167,8 @@ const HalluciQuiz = () => {
     }
   };
 
-  const isQuizComplete = currentQuestion === questions.length - 1 && showResult;
+  // Check if quiz is complete - must be on last question AND have shown result
+  const isQuizComplete = questions.length > 0 && currentQuestion >= questions.length - 1 && showResult;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center p-4">
