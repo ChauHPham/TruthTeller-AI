@@ -1,1 +1,1 @@
-# AIQuiz
+# TruthTeller AI
