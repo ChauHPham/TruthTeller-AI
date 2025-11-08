@@ -1,4 +1,4 @@
-# HalluciQuiz - AI-Powered Quiz Application
+# TruthtellerAI - AI-Powered Quiz Application
 
 A modern, interactive quiz application with AI-generated questions using OpenAI.
 
@@ -27,7 +27,7 @@ npm --version
 
 ### 1. Clone or Download the Project
 ```bash
-cd HalluciQuiz-Boilerplate
+cd TruthtellerAI-Boilerplate
 ```
 
 ### 2. Install Dependencies
