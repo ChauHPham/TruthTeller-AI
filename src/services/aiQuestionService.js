@@ -11,19 +11,29 @@ const generateQuestionsWithAI = async (category, difficulty, count) => {
   const API_TOKEN = import.meta.env.VITE_HUGGINGFACE_API_TOKEN || '';
   const REPO_ID = import.meta.env.VITE_HUGGINGFACE_REPO_ID || '';
   
-  // Try to load questions from repo first (if repo is configured)
+  // Try to load questions from repo first (if repo is configured) - but don't block if it fails
+  // Skip repo loading if it's taking too long or failing - prioritize API generation
   if (REPO_ID && API_TOKEN) {
     try {
-      const repoQuestions = await loadQuestionsFromRepo(REPO_ID, API_TOKEN);
-      if (repoQuestions.length > 0) {
+      console.log('📦 Checking repo for existing questions...');
+      const repoQuestions = await Promise.race([
+        loadQuestionsFromRepo(REPO_ID, API_TOKEN),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Repo load timeout')), 2000))
+      ]);
+      if (repoQuestions && repoQuestions.length > 0) {
         const filtered = filterQuestionsFromRepo(repoQuestions, category, difficulty, count);
         if (filtered.length >= count) {
           console.log(`✅ Using ${filtered.length} questions from Hugging Face repo`);
           return filtered;
+        } else {
+          console.log(`📦 Found ${filtered.length} questions in repo, need ${count}. Generating more via API...`);
         }
+      } else {
+        console.log('📦 No questions found in repo, generating new ones via API...');
       }
     } catch (error) {
-      console.log('Could not load from repo, generating new questions:', error.message);
+      console.log('📦 Could not load from repo (non-critical, continuing with API):', error.message);
+      // Continue to generate new questions - don't let repo errors block API calls
     }
   }
   
@@ -93,27 +103,35 @@ Return ONLY the JSON array, no markdown, no code blocks, no additional text.`;
     // "mistralai/Mistral-7B-Instruct-v0.2"
     // "google/gemma-2b-it"
     
-    console.log('Calling Hugging Face API...');
-    const response = await fetch(
-      `https://api-inference.huggingface.co/models/${model}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${API_TOKEN}`
-        },
-        body: JSON.stringify({
-          inputs: prompt,
-          parameters: {
-            temperature: 0.9,
-            max_new_tokens: count * 150,
-            return_full_text: false
-          }
-        })
-      }
-    );
+    console.log('Calling Hugging Face API via proxy...');
+    console.log('Model:', model);
+    console.log('Prompt length:', prompt.length);
+    
+    // Use Vite proxy to avoid CORS issues
+    const proxyUrl = `/api/huggingface/models/${model}`;
+    console.log('Proxy URL:', proxyUrl);
+    
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-HF-Token': API_TOKEN // Pass token in custom header for proxy
+      },
+      body: JSON.stringify({
+        inputs: prompt,
+        parameters: {
+          temperature: 0.9,
+          max_new_tokens: count * 150,
+          return_full_text: false
+        }
+      })
+    }).catch(fetchError => {
+      console.error('Fetch error (network/CORS):', fetchError);
+      throw new Error(`Network error: ${fetchError.message}. Make sure dev server is running with proxy enabled.`);
+    });
 
     console.log('Hugging Face API response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -261,6 +279,7 @@ Return ONLY the JSON array, no markdown, no code blocks, no additional text.`;
 // Fallback questions if AI fails or no API key
 const generateFallbackQuestions = (category, difficulty, count) => {
   const fallbackQuestions = [
+    // Science - Easy
     {
       id: 1,
       category: "science",
@@ -274,6 +293,16 @@ const generateFallbackQuestions = (category, difficulty, count) => {
     {
       id: 2,
       category: "science",
+      difficulty: "easy",
+      type: "true-false",
+      question: "Water boils at 100 degrees Celsius at sea level.",
+      correct: true,
+      explanation: "Yes, water boils at 100°C (212°F) at standard atmospheric pressure."
+    },
+    // Science - Medium
+    {
+      id: 3,
+      category: "science",
       difficulty: "medium",
       type: "true-false",
       question: "The human body has 206 bones.",
@@ -281,7 +310,29 @@ const generateFallbackQuestions = (category, difficulty, count) => {
       explanation: "Yes, the adult human body has 206 bones."
     },
     {
-      id: 3,
+      id: 4,
+      category: "science",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "What is the chemical symbol for gold?",
+      options: ["Go", "Gd", "Au", "Ag"],
+      correct: 2,
+      explanation: "Au is the chemical symbol for gold (from Latin 'aurum')."
+    },
+    // Science - Hard
+    {
+      id: 5,
+      category: "science",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "What is the speed of light in a vacuum?",
+      options: ["300,000 km/s", "150,000 km/s", "450,000 km/s", "299,792 km/s"],
+      correct: 3,
+      explanation: "The speed of light in a vacuum is exactly 299,792,458 meters per second (approximately 300,000 km/s)."
+    },
+    // History - Easy
+    {
+      id: 6,
       category: "history",
       difficulty: "easy",
       type: "multiple-choice",
@@ -291,7 +342,39 @@ const generateFallbackQuestions = (category, difficulty, count) => {
       explanation: "World War II ended in 1945."
     },
     {
-      id: 4,
+      id: 7,
+      category: "history",
+      difficulty: "easy",
+      type: "true-false",
+      question: "The United States declared independence in 1776.",
+      correct: true,
+      explanation: "Yes, the Declaration of Independence was signed on July 4, 1776."
+    },
+    // History - Medium
+    {
+      id: 8,
+      category: "history",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "Who was the first person to walk on the moon?",
+      options: ["Buzz Aldrin", "Neil Armstrong", "Michael Collins", "John Glenn"],
+      correct: 1,
+      explanation: "Neil Armstrong was the first person to walk on the moon on July 20, 1969."
+    },
+    // History - Hard
+    {
+      id: 9,
+      category: "history",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "The Renaissance period began in which country?",
+      options: ["France", "Germany", "Italy", "Spain"],
+      correct: 2,
+      explanation: "The Renaissance began in Italy in the 14th century, particularly in Florence."
+    },
+    // Geography - Easy
+    {
+      id: 10,
       category: "geography",
       difficulty: "easy",
       type: "multiple-choice",
@@ -301,23 +384,100 @@ const generateFallbackQuestions = (category, difficulty, count) => {
       explanation: "Paris is the capital of France."
     },
     {
-      id: 5,
+      id: 11,
+      category: "geography",
+      difficulty: "easy",
+      type: "true-false",
+      question: "Mount Everest is the tallest mountain in the world.",
+      correct: true,
+      explanation: "Yes, Mount Everest is the highest peak above sea level at 8,848 meters (29,029 feet)."
+    },
+    // Geography - Medium
+    {
+      id: 12,
+      category: "geography",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "Which is the largest ocean on Earth?",
+      options: ["Atlantic", "Indian", "Arctic", "Pacific"],
+      correct: 3,
+      explanation: "The Pacific Ocean is the largest ocean, covering about one-third of Earth's surface."
+    },
+    // Geography - Hard
+    {
+      id: 13,
+      category: "geography",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "What is the deepest point in the ocean?",
+      options: ["Mariana Trench", "Puerto Rico Trench", "Java Trench", "Tonga Trench"],
+      correct: 0,
+      explanation: "The Mariana Trench in the Pacific Ocean is the deepest point, reaching about 11,034 meters (36,201 feet)."
+    },
+    // Technology - Easy
+    {
+      id: 14,
       category: "technology",
       difficulty: "easy",
       type: "true-false",
       question: "HTML stands for HyperText Markup Language.",
       correct: true,
       explanation: "Yes, HTML stands for HyperText Markup Language."
+    },
+    {
+      id: 15,
+      category: "technology",
+      difficulty: "easy",
+      type: "multiple-choice",
+      question: "What does CPU stand for?",
+      options: ["Central Processing Unit", "Computer Personal Unit", "Central Program Utility", "Computer Processing Unit"],
+      correct: 0,
+      explanation: "CPU stands for Central Processing Unit, the main processor in a computer."
+    },
+    // Technology - Medium
+    {
+      id: 16,
+      category: "technology",
+      difficulty: "medium",
+      type: "multiple-choice",
+      question: "Which programming language was created by Guido van Rossum?",
+      options: ["Java", "Python", "JavaScript", "C++"],
+      correct: 1,
+      explanation: "Python was created by Guido van Rossum and first released in 1991."
+    },
+    // Technology - Hard
+    {
+      id: 17,
+      category: "technology",
+      difficulty: "hard",
+      type: "multiple-choice",
+      question: "What is the time complexity of binary search?",
+      options: ["O(n)", "O(log n)", "O(n log n)", "O(1)"],
+      correct: 1,
+      explanation: "Binary search has O(log n) time complexity because it eliminates half of the search space in each iteration."
     }
   ];
 
-  // Filter and return requested count
+  // Filter by category and difficulty
   let filtered = fallbackQuestions;
   if (category) {
     filtered = filtered.filter(q => q.category === category);
   }
   if (difficulty) {
     filtered = filtered.filter(q => q.difficulty === difficulty);
+  }
+  
+  // If filtering results in too few questions, use all available and repeat if needed
+  if (filtered.length < count) {
+    console.warn(`⚠️ Only ${filtered.length} fallback questions match your filters. Repeating questions to reach ${count}.`);
+    const repeated = [];
+    for (let i = 0; i < count; i++) {
+      repeated.push({
+        ...filtered[i % filtered.length],
+        id: filtered[i % filtered.length].id + (i * 1000) // Make IDs unique
+      });
+    }
+    return repeated;
   }
   
   return filtered.slice(0, count);
