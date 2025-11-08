@@ -1,14 +1,34 @@
 /**
  * AI Question Generation Service
  * Generates fact-based quiz questions using AI
+ * Also saves questions to Hugging Face dataset/repo for reuse
  */
 
+import { saveQuestionsToRepo, loadQuestionsFromRepo, filterQuestionsFromRepo } from './huggingFaceRepoService';
+
 const generateQuestionsWithAI = async (category, difficulty, count) => {
-  // Get API key from environment variable or use a default
-  const API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
+  // Get Hugging Face API token and repo ID from environment variables
+  const API_TOKEN = import.meta.env.VITE_HUGGINGFACE_API_TOKEN || '';
+  const REPO_ID = import.meta.env.VITE_HUGGINGFACE_REPO_ID || '';
   
-  if (!API_KEY) {
-    console.warn('No API key found. Using fallback questions.');
+  // Try to load questions from repo first (if repo is configured)
+  if (REPO_ID && API_TOKEN) {
+    try {
+      const repoQuestions = await loadQuestionsFromRepo(REPO_ID, API_TOKEN);
+      if (repoQuestions.length > 0) {
+        const filtered = filterQuestionsFromRepo(repoQuestions, category, difficulty, count);
+        if (filtered.length >= count) {
+          console.log(`✅ Using ${filtered.length} questions from Hugging Face repo`);
+          return filtered;
+        }
+      }
+    } catch (error) {
+      console.log('Could not load from repo, generating new questions:', error.message);
+    }
+  }
+  
+  if (!API_TOKEN) {
+    console.warn('No Hugging Face API token found. Using fallback questions.');
     return generateFallbackQuestions(category, difficulty, count);
   }
 
@@ -32,8 +52,9 @@ const generateQuestionsWithAI = async (category, difficulty, count) => {
     
     const difficultyDesc = difficultyDescription[difficulty] || "moderately challenging";
 
-    const prompt = `Generate ${count} UNIQUE and DIFFERENT ${difficultyDesc} fact-based quiz questions about ${categoryDesc}. 
-    
+    // Format prompt for Mistral instruction-following model
+    const prompt = `<s>[INST] You are a quiz question generator. Generate ${count} UNIQUE and DIFFERENT ${difficultyDesc} fact-based quiz questions about ${categoryDesc}.
+
 IMPORTANT: Generate completely NEW and UNIQUE questions each time. Do NOT repeat questions you've generated before.
 
 Requirements:
@@ -42,7 +63,7 @@ Requirements:
 - Each question should have a clear correct answer
 - Include brief explanations for each answer
 - Vary the topics and subjects within the category
-- Format as JSON array with this structure:
+- Format as JSON array with this EXACT structure:
 [
   {
     "type": "multiple-choice" or "true-false",
@@ -53,37 +74,47 @@ Requirements:
   }
 ]
 
-Return ONLY valid JSON, no additional text.`;
+Return ONLY valid JSON array, no additional text or markdown. [/INST]`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a quiz question generator. Always return valid JSON arrays with quiz questions.'
-          },
-          {
-            role: 'user',
-            content: prompt
+    // Use Hugging Face Inference API with a free open-source model
+    // Using mistralai/Mistral-7B-Instruct-v0.2 for good quality and free tier support
+    const model = "mistralai/Mistral-7B-Instruct-v0.2";
+    
+    const response = await fetch(
+      `https://api-inference.huggingface.co/models/${model}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_TOKEN}`
+        },
+        body: JSON.stringify({
+          inputs: prompt,
+          parameters: {
+            temperature: 0.9,
+            max_new_tokens: count * 150,
+            return_full_text: false
           }
-        ],
-        temperature: 0.9, // Higher temperature for more variety and uniqueness
-        max_tokens: count * 150 // Increase tokens based on question count (150 per question)
-      })
-    });
+        })
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorData.error || response.statusText}`);
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content.trim();
+    
+    // Hugging Face returns an array with generated text
+    let content = '';
+    if (Array.isArray(data) && data[0]?.generated_text) {
+      content = data[0].generated_text.trim();
+    } else if (data.generated_text) {
+      content = data.generated_text.trim();
+    } else {
+      throw new Error('Unexpected response format from Hugging Face API');
+    }
     
     // Extract JSON from response (handle cases where AI adds markdown formatting)
     let jsonContent = content;
@@ -126,10 +157,17 @@ Return ONLY valid JSON, no additional text.`;
       console.log(`Got ${formattedQuestions.length} questions, need ${count}. This is normal if AI response was truncated.`);
     }
     
+    // Save questions to Hugging Face repo (background operation, don't wait)
+    if (REPO_ID && API_TOKEN && formattedQuestions.length > 0) {
+      saveQuestionsToRepo(formattedQuestions, REPO_ID, API_TOKEN).catch(err => {
+        console.warn('Background save to repo failed (non-critical):', err);
+      });
+    }
+    
     return formattedQuestions;
 
   } catch (error) {
-    console.error('Error generating AI questions:', error);
+    console.error('Error generating AI questions with Hugging Face:', error);
     // Fallback to static questions
     return generateFallbackQuestions(category, difficulty, count);
   }

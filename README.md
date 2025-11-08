@@ -1,16 +1,18 @@
 # TruthtellerAI - AI-Powered Quiz Application
 
-A modern, interactive quiz application with AI-generated questions using OpenAI.
+A modern, interactive quiz application with AI-generated questions using Hugging Face (FREE!).
 
 ## Features
 
-- 🤖 **AI-Generated Questions**: Dynamic fact-based questions generated using OpenAI
+- 🤖 **AI-Generated Questions**: Dynamic fact-based questions generated using Hugging Face (FREE!)
+- 💾 **Auto-Save to Dataset**: Questions automatically saved to your Hugging Face dataset for reuse
 - 📚 **Multiple Categories**: Science, History, Geography, Technology
 - 🎯 **Difficulty Levels**: Easy, Medium, Hard
 - 📊 **Question Counts**: Choose 5, 10, or 20 questions
 - ✅ **Question Types**: Multiple Choice and True/False
 - ⏱️ **Timer System**: Time limits based on difficulty
 - 🎨 **Beautiful UI**: Modern design with smooth animations
+- 🔄 **Smart Caching**: Reuses questions from your dataset when available
 
 ## Prerequisites
 
@@ -45,18 +47,35 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
-### 3. Configure OpenAI API Key (Optional but Recommended)
+### 3. Configure Hugging Face API Token (Optional but Recommended - FREE!)
 
-Create a `.env` file in the root directory:
-```env
-VITE_OPENAI_API_KEY=your_openai_api_key_here
+Copy the `.env.example` file to `.env`:
+```bash
+cp .env.example .env
 ```
 
-Get your API key from: https://platform.openai.com/api-keys
+Then edit `.env` and add your Hugging Face API token and optional repo ID:
+```env
+VITE_HUGGINGFACE_API_TOKEN=your_huggingface_token_here
+VITE_HUGGINGFACE_REPO_ID=your_username/your-repo-name
+```
+
+**Get your FREE API token**: https://huggingface.co/settings/tokens
+- Make sure to select **"Write"** access if you want to save questions to a repo
+
+**Set up a Dataset Repo (Optional but Recommended)**:
+1. Create a new dataset at: https://huggingface.co/new-dataset
+2. Choose a name (e.g., `truthteller-questions`)
+3. Set visibility (Private or Public)
+4. Copy the repo ID (format: `username/repo-name`)
+5. Add it to your `.env` file as `VITE_HUGGINGFACE_REPO_ID`
 
 **Note**: 
-- If no API key is provided, the app will use fallback questions (limited to 5 questions)
-- With API key: You get AI-generated questions (5, 10, or 20 questions as selected)
+- Hugging Face offers a **FREE tier** with generous limits!
+- If no API token is provided, the app will use fallback questions (limited to 5 questions)
+- With API token: You get AI-generated questions (5, 10, or 20 questions as selected)
+- The app uses Mistral-7B-Instruct, a high-quality open-source model
+- **With repo configured**: Generated questions are automatically saved to your Hugging Face dataset for reuse and sharing!
 
 ### 4. Run the Development Server
 ```bash
@@ -92,9 +111,21 @@ The server will start and show you the local URL (usually `http://localhost:5173
 ## How It Works
 
 1. **Select Settings**: Choose category, difficulty, and question count
-2. **Start Quiz**: Click "Start Quiz" - AI generates questions on the fly
+2. **Start Quiz**: Click "Start Quiz" 
+   - First checks your Hugging Face dataset for existing questions
+   - If not enough found, generates new questions using AI
+   - New questions are automatically saved to your dataset
 3. **Answer Questions**: Answer within the time limit
 4. **See Results**: Get your score and explanations
+
+### Dataset Feature
+
+When you configure a Hugging Face repo:
+- ✅ **Auto-Save**: All generated questions are saved to your dataset
+- ✅ **Reuse**: Questions are loaded from your dataset when available (faster!)
+- ✅ **Share**: Make your dataset public to share with others
+- ✅ **Train**: Use your dataset to train custom models later
+- ✅ **No Duplicates**: Automatically avoids saving duplicate questions
 
 ## Tech Stack
 
@@ -102,7 +133,7 @@ The server will start and show you the local URL (usually `http://localhost:5173
 - Vite
 - Tailwind CSS
 - Framer Motion
-- OpenAI API (GPT-3.5-turbo)
+- Hugging Face Inference API (Mistral-7B-Instruct) - **FREE!**
 
 ## Build for Production
 
