@@ -65,15 +65,28 @@ const generateQuestionsWithAI = async (category, difficulty, count) => {
     
     const difficultyDesc = difficultyDescription[difficulty] || "moderately challenging";
 
+    // Add randomness to ensure different questions each time
+    const randomSeed = Date.now() + Math.random() * 1000;
+    const uniqueTopics = [
+      "specific historical events", "scientific discoveries", "geographical features", 
+      "technological innovations", "famous people", "natural phenomena", 
+      "cultural facts", "scientific principles", "world landmarks", "tech history"
+    ];
+    const randomTopic = uniqueTopics[Math.floor(Math.random() * uniqueTopics.length)];
+    
     // Format prompt for instruction-following models (Llama/Mistral format)
     const prompt = `You are a quiz question generator. Generate exactly ${count} ${difficultyDesc} fact-based quiz questions about ${categoryDesc}.
+
+IMPORTANT: Generate UNIQUE and DIFFERENT questions. Do NOT repeat common questions. Focus on ${randomTopic} and vary the specific topics.
 
 Requirements:
 - Questions must be factual and educational (NOT math problems)
 - Mix of multiple-choice (4 options) and true/false questions
 - Each question must have a clear correct answer
 - Include brief explanations for each answer
-- Vary the topics within the category
+- Vary the topics within the category - avoid repeating the same questions
+- Make each question unique and interesting
+- Use diverse examples and avoid common textbook questions
 
 Return ONLY a valid JSON array with this EXACT structure:
 [
@@ -120,9 +133,11 @@ Return ONLY the JSON array, no markdown, no code blocks, no additional text.`;
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          temperature: 0.9,
-          max_new_tokens: count * 150,
-          return_full_text: false
+          temperature: 1.2, // Higher temperature for more variety and creativity
+          max_new_tokens: count * 200, // Increased to ensure we get all questions
+          return_full_text: false,
+          top_p: 0.95, // Nucleus sampling for diversity
+          do_sample: true // Enable sampling for randomness
         }
       })
     }).catch(fetchError => {
@@ -239,8 +254,13 @@ Return ONLY the JSON array, no markdown, no code blocks, no additional text.`;
       question: q.question,
       options: q.options || [],
       correct: q.correct,
-      explanation: q.explanation || 'No explanation provided.'
+      explanation: q.explanation || 'No explanation provided.',
+      source: 'ai-generated', // Mark as AI-generated
+      generatedAt: new Date().toISOString()
     }));
+    
+    console.log(`✅ Successfully generated ${formattedQuestions.length} AI questions`);
+    console.log(`📝 Sample question: "${formattedQuestions[0]?.question?.substring(0, 50)}..."`);
     
     // If we got fewer questions than requested, try to generate more
     if (formattedQuestions.length < count && formattedQuestions.length > 0) {
@@ -248,10 +268,32 @@ Return ONLY the JSON array, no markdown, no code blocks, no additional text.`;
     }
     
     // Save questions to Hugging Face repo (background operation, don't wait)
+    // Only save AI-generated questions, not fallback questions
     if (REPO_ID && API_TOKEN && formattedQuestions.length > 0) {
-      saveQuestionsToRepo(formattedQuestions, REPO_ID, API_TOKEN).catch(err => {
-        console.warn('Background save to repo failed (non-critical):', err);
-      });
+      // Check if these are AI-generated (not fallback)
+      const isAIGenerated = formattedQuestions.some(q => q.source === 'ai-generated');
+      if (isAIGenerated) {
+        console.log(`💾 Attempting to save ${formattedQuestions.length} AI-generated questions to repo: ${REPO_ID}`);
+        // Don't await - let it run in background
+        saveQuestionsToRepo(formattedQuestions, REPO_ID, API_TOKEN)
+          .then(() => {
+            console.log('✅ Questions saved to repo successfully');
+          })
+          .catch(err => {
+            console.error('❌ Background save to repo failed (non-critical):', err.message);
+            // Don't break the flow - this is a background operation
+          });
+      } else {
+        console.log('💾 Skipping repo save: Questions are fallback (not AI-generated)');
+      }
+    } else {
+      if (!REPO_ID) {
+        console.log('💾 Skipping repo save: No REPO_ID configured');
+      } else if (!API_TOKEN) {
+        console.log('💾 Skipping repo save: No API_TOKEN configured');
+      } else if (formattedQuestions.length === 0) {
+        console.log('💾 Skipping repo save: No questions to save');
+      }
     }
     
     return formattedQuestions;
@@ -278,6 +320,7 @@ Return ONLY the JSON array, no markdown, no code blocks, no additional text.`;
 
 // Fallback questions if AI fails or no API key
 const generateFallbackQuestions = (category, difficulty, count) => {
+  console.warn('⚠️ Using FALLBACK questions (AI generation failed or no API token)');
   const fallbackQuestions = [
     // Science - Easy
     {
