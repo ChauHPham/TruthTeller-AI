@@ -132,7 +132,15 @@ const TruthtellerAI = () => {
     setIsLoadingQuestions(true);
     setQuestionError(null);
     try {
+      // Check if API token is configured
+      const hasToken = import.meta.env.VITE_HUGGINGFACE_API_TOKEN;
+      if (!hasToken) {
+        console.warn('⚠️ No API token found in environment variables');
+        setQuestionError('No API token configured. Add VITE_HUGGINGFACE_API_TOKEN to your .env file. Using fallback questions.');
+      }
+      
       console.log(`Generating ${selectedQuestionCount} questions for category: ${selectedCategory || 'all'}, difficulty: ${selectedDifficulty}`);
+      console.log('API token configured:', hasToken ? 'Yes' : 'No');
       
       const generatedQuestions = await generateQuestionsWithAI(
         selectedCategory,
@@ -140,16 +148,18 @@ const TruthtellerAI = () => {
         selectedQuestionCount
       );
       
-      console.log(`Generated ${generatedQuestions.length} questions (requested: ${selectedQuestionCount})`);
+      console.log(`✅ Generated ${generatedQuestions.length} questions (requested: ${selectedQuestionCount})`);
       
       if (generatedQuestions.length === 0) {
-        setQuestionError('No questions could be generated. Please try again.');
+        setQuestionError('No questions could be generated. Please check your API token and try again.');
         setIsLoadingQuestions(false);
         return;
       }
       
-      // Ensure we have at least some questions
-      if (generatedQuestions.length < selectedQuestionCount) {
+      // Check if we got fallback questions (only 5 available)
+      if (generatedQuestions.length <= 5 && selectedQuestionCount > 5) {
+        setQuestionError(`⚠️ Only ${generatedQuestions.length} fallback questions available. Configure your API token for AI-generated questions.`);
+      } else if (generatedQuestions.length < selectedQuestionCount) {
         console.warn(`Only got ${generatedQuestions.length} questions, but requested ${selectedQuestionCount}`);
         setQuestionError(`Only ${generatedQuestions.length} questions were generated (requested ${selectedQuestionCount}). You can still proceed.`);
       }
@@ -161,7 +171,7 @@ const TruthtellerAI = () => {
       setTimeLeft(difficultySettings[selectedDifficulty].timeLimit);
     } catch (error) {
       console.error('Failed to generate questions:', error);
-      setQuestionError('Failed to generate questions. Please try again.');
+      setQuestionError(`Failed to generate questions: ${error.message}. Check browser console for details.`);
     } finally {
       setIsLoadingQuestions(false);
     }

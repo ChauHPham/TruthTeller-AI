@@ -28,9 +28,12 @@ const generateQuestionsWithAI = async (category, difficulty, count) => {
   }
   
   if (!API_TOKEN) {
-    console.warn('No Hugging Face API token found. Using fallback questions.');
+    console.warn('⚠️ No Hugging Face API token found. Using fallback questions.');
+    console.warn('💡 Add VITE_HUGGINGFACE_API_TOKEN to your .env file');
     return generateFallbackQuestions(category, difficulty, count);
   }
+
+  console.log('✅ API token found, generating questions with Hugging Face...');
 
   try {
     const categoryDescription = {
@@ -52,34 +55,45 @@ const generateQuestionsWithAI = async (category, difficulty, count) => {
     
     const difficultyDesc = difficultyDescription[difficulty] || "moderately challenging";
 
-    // Format prompt for Mistral instruction-following model
-    const prompt = `<s>[INST] You are a quiz question generator. Generate ${count} UNIQUE and DIFFERENT ${difficultyDesc} fact-based quiz questions about ${categoryDesc}.
-
-IMPORTANT: Generate completely NEW and UNIQUE questions each time. Do NOT repeat questions you've generated before.
+    // Format prompt for instruction-following models (Llama/Mistral format)
+    const prompt = `You are a quiz question generator. Generate exactly ${count} ${difficultyDesc} fact-based quiz questions about ${categoryDesc}.
 
 Requirements:
-- Questions should be factual and educational (NOT math problems)
+- Questions must be factual and educational (NOT math problems)
 - Mix of multiple-choice (4 options) and true/false questions
-- Each question should have a clear correct answer
+- Each question must have a clear correct answer
 - Include brief explanations for each answer
-- Vary the topics and subjects within the category
-- Format as JSON array with this EXACT structure:
+- Vary the topics within the category
+
+Return ONLY a valid JSON array with this EXACT structure:
 [
   {
-    "type": "multiple-choice" or "true-false",
-    "question": "question text",
-    "options": ["option1", "option2", "option3", "option4"] (only for multiple-choice),
-    "correct": 0 (index for multiple-choice) or true/false (for true-false),
-    "explanation": "brief explanation"
+    "type": "multiple-choice",
+    "question": "What is the capital of France?",
+    "options": ["London", "Berlin", "Paris", "Madrid"],
+    "correct": 2,
+    "explanation": "Paris is the capital of France."
+  },
+  {
+    "type": "true-false",
+    "question": "The Earth is round.",
+    "correct": true,
+    "explanation": "Yes, the Earth is approximately spherical."
   }
 ]
 
-Return ONLY valid JSON array, no additional text or markdown. [/INST]`;
+Return ONLY the JSON array, no markdown, no code blocks, no additional text.`;
 
     // Use Hugging Face Inference API with a free open-source model
-    // Using mistralai/Mistral-7B-Instruct-v0.2 for good quality and free tier support
-    const model = "mistralai/Mistral-7B-Instruct-v0.2";
+    // Try multiple models - some may be faster/more reliable
+    // Using meta-llama/Llama-3.2-3B-Instruct for better JSON generation
+    const model = "meta-llama/Llama-3.2-3B-Instruct";
     
+    // Alternative models to try if this fails:
+    // "mistralai/Mistral-7B-Instruct-v0.2"
+    // "google/gemma-2b-it"
+    
+    console.log('Calling Hugging Face API...');
     const response = await fetch(
       `https://api-inference.huggingface.co/models/${model}`,
       {
@@ -99,32 +113,90 @@ Return ONLY valid JSON array, no additional text or markdown. [/INST]`;
       }
     );
 
+    console.log('Hugging Face API response status:', response.status);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`Hugging Face API error: ${response.status} - ${errorData.error || response.statusText}`);
+      console.error('Hugging Face API error:', errorData);
+      
+      // Handle model loading case
+      if (errorData.error && errorData.error.includes('loading')) {
+        console.warn('Model is loading, this may take 20-30 seconds. Retrying in 5 seconds...');
+        // Wait and retry once
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return generateQuestionsWithAI(category, difficulty, count); // Retry
+      }
+      
+      throw new Error(`Hugging Face API error: ${response.status} - ${errorData.error || JSON.stringify(errorData) || response.statusText}`);
     }
 
     const data = await response.json();
+    console.log('Hugging Face API response data:', data);
     
-    // Hugging Face returns an array with generated text
+    // Hugging Face returns different formats depending on the model
     let content = '';
-    if (Array.isArray(data) && data[0]?.generated_text) {
-      content = data[0].generated_text.trim();
+    if (Array.isArray(data)) {
+      // Array format: [{generated_text: "..."}]
+      if (data[0]?.generated_text) {
+        content = data[0].generated_text.trim();
+      } else if (data[0]?.text) {
+        content = data[0].text.trim();
+      }
     } else if (data.generated_text) {
+      // Direct format: {generated_text: "..."}
       content = data.generated_text.trim();
+    } else if (data[0]?.generated_text) {
+      // Nested array format
+      content = data[0].generated_text.trim();
     } else {
-      throw new Error('Unexpected response format from Hugging Face API');
+      console.error('Unexpected response format:', data);
+      throw new Error('Unexpected response format from Hugging Face API. Response: ' + JSON.stringify(data).substring(0, 200));
     }
+    
+    if (!content) {
+      throw new Error('No generated text in response from Hugging Face API');
+    }
+    
+    console.log('Extracted content length:', content.length);
     
     // Extract JSON from response (handle cases where AI adds markdown formatting)
     let jsonContent = content;
-    if (content.startsWith('```json')) {
-      jsonContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    } else if (content.startsWith('```')) {
-      jsonContent = content.replace(/```\n?/g, '');
+    
+    // Remove markdown code blocks if present
+    if (content.includes('```json')) {
+      const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/);
+      if (jsonMatch) {
+        jsonContent = jsonMatch[1].trim();
+      } else {
+        jsonContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '');
+      }
+    } else if (content.includes('```')) {
+      const codeMatch = content.match(/```\s*([\s\S]*?)\s*```/);
+      if (codeMatch) {
+        jsonContent = codeMatch[1].trim();
+      } else {
+        jsonContent = content.replace(/```\n?/g, '');
+      }
     }
     
-    const questions = JSON.parse(jsonContent);
+    // Try to find JSON array in the content if it's not at the start
+    if (!jsonContent.trim().startsWith('[')) {
+      const jsonArrayMatch = jsonContent.match(/\[[\s\S]*\]/);
+      if (jsonArrayMatch) {
+        jsonContent = jsonArrayMatch[0];
+      }
+    }
+    
+    console.log('Attempting to parse JSON, content preview:', jsonContent.substring(0, 200));
+    
+    let questions;
+    try {
+      questions = JSON.parse(jsonContent);
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError);
+      console.error('Content that failed to parse:', jsonContent.substring(0, 500));
+      throw new Error(`Failed to parse JSON from AI response: ${parseError.message}`);
+    }
     
     // Validate that we got an array
     if (!Array.isArray(questions)) {
@@ -167,8 +239,21 @@ Return ONLY valid JSON array, no additional text or markdown. [/INST]`;
     return formattedQuestions;
 
   } catch (error) {
-    console.error('Error generating AI questions with Hugging Face:', error);
+    console.error('❌ Error generating AI questions with Hugging Face:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack
+    });
+    
+    // Show user-friendly error message
+    if (error.message.includes('API error')) {
+      console.warn('⚠️ API call failed. Check your API token and network connection.');
+    } else if (error.message.includes('parse')) {
+      console.warn('⚠️ AI response format issue. The model may need better prompting.');
+    }
+    
     // Fallback to static questions
+    console.log('🔄 Falling back to default questions...');
     return generateFallbackQuestions(category, difficulty, count);
   }
 };
